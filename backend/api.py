@@ -24,11 +24,24 @@ from backend.reranker import CrossEncoderReranker
 from backend.watcher import FileWatcher
 from backend.mcp_tools import MCPToolRegistry
 from backend.a2a_agent import (
-    SearchAgent, 
-    IngestionAgent, 
+    SearchAgent,
+    IngestionAgent,
     ConversationAgent,
     OrchestratorAgent
 )
+
+# NEW: Import enhanced agentic components
+from backend.memory import MemoryManager
+from backend.agents import (
+    QueryClassifier,
+    ClarificationAgent,
+    AnalysisAgent,
+    SummarizationAgent,
+    ExplanationAgent,
+    CriticAgent
+)
+from backend.orchestration import EnhancedOrchestrator
+import uuid
 
 # Load Configuration
 with open("config.yaml", "r") as f:
@@ -61,6 +74,11 @@ ingestion_agent: Optional[IngestionAgent] = None
 conversation_agent: Optional[ConversationAgent] = None
 orchestrator_agent: Optional[OrchestratorAgent] = None
 
+# NEW: Enhanced agentic components
+memory_manager: Optional[MemoryManager] = None
+enhanced_orchestrator: Optional[EnhancedOrchestrator] = None
+query_classifier: Optional[QueryClassifier] = None
+
 # Status tracking for streaming
 status_updates: Dict[str, List[Dict]] = {}
 ingestion_status: Dict[str, List[Dict]] = {}
@@ -72,6 +90,9 @@ class SearchRequest(BaseModel):
     top_k: int = 5
     use_hybrid: bool = True
     stream_status: bool = True
+    # NEW: Session and user tracking for memory
+    session_id: Optional[str] = None
+    user_id: Optional[str] = None
 
 
 class IndexRequest(BaseModel):
@@ -130,17 +151,35 @@ async def stream_status(task_id: str) -> AsyncGenerator[str, None]:
     yield f"data: {json.dumps({'status': 'timeout'})}\n\n"
 
 
+# Helper Functions for Session Management
+def get_or_create_session(request_session_id: Optional[str] = None) -> str:
+    """Get existing session or create new one"""
+    if request_session_id:
+        return request_session_id
+    return str(uuid.uuid4())[:16]
+
+
+def get_user_id(request_user_id: Optional[str] = None) -> str:
+    """Get user ID from request or use default"""
+    return request_user_id or "anonymous"
+
+
 # Health Check
 @app.get("/health")
 async def health_check():
     """System health check"""
     try:
         opensearch_status = await opensearch_client.ping() if opensearch_client else False
+        memory_status = "available" if memory_manager else "unavailable"
+        orchestrator_status = "available" if enhanced_orchestrator else "unavailable"
+
         return {
             "status": "healthy" if opensearch_status else "degraded",
             "opensearch": "connected" if opensearch_status else "disconnected",
             "model": config['ollama']['model'],
             "hybrid_search": config['search']['hybrid']['enabled'],
+            "memory_system": memory_status,
+            "enhanced_orchestrator": orchestrator_status,
             "version": "2.0.0"
         }
     except Exception as e:
@@ -148,7 +187,54 @@ async def health_check():
         return {"status": "unhealthy", "error": str(e)}
 
 
-# --- ENHANCED SEARCH ENDPOINT ---
+# --- NEW: ENHANCED SEARCH WITH MEMORY & AGENTS ---
+@app.post("/search/enhanced")
+async def enhanced_search(request: SearchRequest):
+    """
+    Enhanced search with memory, agents, and orchestration
+
+    This intelligent search endpoint uses:
+    - Memory for context and learning
+    - Agents for specialized tasks
+    - Orchestrator for workflow management
+    - Quality control and explanations
+    """
+    import time
+    start_time = time.time()
+
+    try:
+        # Get or create session
+        session_id = get_or_create_session(request.session_id)
+        user_id = get_user_id(request.user_id)
+
+        logger.info(f"🔍 Enhanced search: '{request.query}' (user: {user_id}, session: {session_id})")
+
+        # Use orchestrator if available, otherwise fallback to standard search
+        if enhanced_orchestrator and memory_manager:
+            result = await enhanced_orchestrator.process_query(
+                user_id=user_id,
+                session_id=session_id,
+                query=request.query
+            )
+
+            # Add session info to response
+            result["session_id"] = session_id
+            result["user_id"] = user_id
+            result["status"] = result.get("status", "success")
+
+            return result
+
+        else:
+            # Fallback to original search
+            logger.warning("Enhanced features not available, using standard search")
+            return await search(request)
+
+    except Exception as e:
+        logger.error(f"Enhanced search error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# --- EXISTING SEARCH ENDPOINT ---
 @app.post("/search")
 async def search(request: SearchRequest):
     """
@@ -599,6 +685,121 @@ async def get_clusters():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# --- NEW: MEMORY SYSTEM ENDPOINTS ---
+
+@app.get("/memory/summary")
+async def get_memory_summary(user_id: str, session_id: str):
+    """Get user memory summary"""
+    if not memory_manager:
+        raise HTTPException(status_code=503, detail="Memory system not available")
+
+    try:
+        summary = await memory_manager.get_memory_summary(
+            user_id=user_id,
+            session_id=session_id
+        )
+        return {"status": "success", "summary": summary}
+
+    except Exception as e:
+        logger.error(f"Memory summary error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/memory/preferences")
+async def get_user_preferences(user_id: str):
+    """Get personalized user preferences"""
+    if not memory_manager:
+        raise HTTPException(status_code=503, detail="Memory system not available")
+
+    try:
+        prefs = await memory_manager.get_user_preferences(user_id)
+        return {"status": "success", "preferences": prefs}
+
+    except Exception as e:
+        logger.error(f"Preferences error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/memory/session/{session_id}")
+async def clear_session(session_id: str):
+    """Clear a specific session"""
+    if not memory_manager:
+        raise HTTPException(status_code=503, detail="Memory system not available")
+
+    try:
+        await memory_manager.session_memory.clear_session(session_id)
+        return {"status": "success", "message": f"Session {session_id} cleared"}
+
+    except Exception as e:
+        logger.error(f"Session clear error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# --- NEW: SPECIALIZED AGENT ENDPOINTS ---
+
+@app.post("/analyze/compare")
+async def compare_documents(doc_ids: List[str]):
+    """Compare multiple documents"""
+    try:
+        # Fetch documents by IDs
+        documents = []
+        for doc_id in doc_ids:
+            # Simple retrieval - in production, add proper document lookup
+            # For now, we'll need to search or have a get_by_id method
+            pass
+
+        if len(documents) < 2:
+            raise HTTPException(status_code=400, detail="Need at least 2 documents to compare")
+
+        # Use analysis agent
+        from backend.agents import AnalysisAgent
+        analysis_agent = AnalysisAgent(config)
+
+        comparison = await analysis_agent.compare_documents(documents)
+
+        return {
+            "status": "success",
+            "comparison": comparison,
+            "document_count": len(documents)
+        }
+
+    except Exception as e:
+        logger.error(f"Comparison error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/analyze/summarize")
+async def summarize_multiple(doc_ids: List[str], summary_type: str = "comprehensive"):
+    """Summarize multiple documents"""
+    try:
+        # Fetch documents (implementation depends on your document storage)
+        documents = []
+        # Add document retrieval logic here
+
+        if not documents:
+            raise HTTPException(status_code=404, detail="No documents found")
+
+        # Use summarization agent
+        from backend.agents import SummarizationAgent
+        summarization_agent = SummarizationAgent(config)
+
+        summary = await summarization_agent.summarize_documents(
+            documents=documents,
+            summary_type=summary_type
+        )
+
+        return {
+            "status": "success",
+            "summary": summary,
+            "document_count": len(documents),
+            "summary_type": summary_type
+        }
+
+    except Exception as e:
+        logger.error(f"Summarization error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # A2A Message Endpoint
 @app.post("/a2a/message")
 async def handle_a2a_message(message: Dict[str, Any]):
@@ -639,33 +840,92 @@ async def execute_mcp_tool(tool_name: str, params: Dict[str, Any]):
 # Startup Event
 @app.on_event("startup")
 async def startup_event():
-    """Initialize services on startup"""
+    """Initialize services on startup with enhanced agentic features"""
     global opensearch_client, ingestion_pipeline, reranker
     global mcp_registry, search_agent, ingestion_agent
     global conversation_agent, orchestrator_agent
-    
-    logger.info("🚀 Starting LocalLens API v2.0...")
-    
-    # Initialize components
+    global memory_manager, enhanced_orchestrator, query_classifier
+
+    logger.info("🚀 Starting LocalLens API v2.0 with Agentic Features...")
+
+    # === EXISTING COMPONENTS ===
     opensearch_client = OpenSearchClient(config)
     ingestion_pipeline = IngestionPipeline(config, opensearch_client, ingestion_status_callback)
     reranker = CrossEncoderReranker(config)
     mcp_registry = MCPToolRegistry()
-    
-    # Initialize agents
+
+    # Initialize existing agents
     search_agent = SearchAgent(config)
     ingestion_agent = IngestionAgent(config)
     conversation_agent = ConversationAgent(config)
     orchestrator_agent = OrchestratorAgent(config)
-    
+
     # Initialize OpenSearch index
     await opensearch_client.create_index()
-    
-    # Register MCP tools
+
+    # === NEW: ENHANCED COMPONENTS ===
+    logger.info("Initializing enhanced memory and agent systems...")
+
+    # 1. Initialize Memory Manager
+    try:
+        memory_config = config.get("memory", {})
+        memory_manager = MemoryManager(
+            redis_url=memory_config.get("session", {}).get("redis_url", "redis://localhost:6379"),
+            database_url=memory_config.get("user_profile", {}).get("database_url", "sqlite+aiosqlite:///locallens_memory.db")
+        )
+        await memory_manager.initialize()
+        logger.info("✅ Memory Manager initialized")
+    except Exception as e:
+        logger.warning(f"Memory Manager initialization failed: {e}. Continuing without memory features.")
+        memory_manager = None
+
+    # 2. Initialize Query Classifier
+    query_classifier = QueryClassifier(config)
+    logger.info("✅ Query Classifier initialized")
+
+    # 3. Create search function wrapper for orchestrator
+    async def search_function(query: str, filters: Optional[Dict] = None, weights: Optional[Dict] = None):
+        """Wrapper function for search to pass to orchestrator"""
+        # Generate embedding
+        query_embedding = await ingestion_pipeline.generate_embedding(query)
+
+        # Perform hybrid search
+        candidates = await opensearch_client.hybrid_search(
+            query=query,
+            query_vector=query_embedding,
+            top_k=config['search']['recall_top_k'],
+            filters=filters
+        )
+
+        # Rerank
+        if candidates:
+            results = await reranker.rerank(
+                query=query,
+                documents=candidates,
+                top_k=config['search']['rerank_top_k']
+            )
+            return results
+
+        return []
+
+    # 4. Initialize Enhanced Orchestrator
+    if memory_manager:
+        try:
+            enhanced_orchestrator = EnhancedOrchestrator(
+                config=config,
+                memory_manager=memory_manager,
+                search_function=search_function
+            )
+            logger.info("✅ Enhanced Orchestrator initialized with LangGraph")
+        except Exception as e:
+            logger.warning(f"Orchestrator initialization failed: {e}")
+            enhanced_orchestrator = None
+
+    # Register MCP tools (existing)
     mcp_registry.register_tool("search_documents", search)
     mcp_registry.register_tool("index_directory", start_indexing)
-    
-    logger.info("✅ LocalLens API ready!")
+
+    logger.info("✅ LocalLens API ready with enhanced agentic features!")
 
 
 # Shutdown Event
@@ -673,19 +933,24 @@ async def startup_event():
 async def shutdown_event():
     """Cleanup on shutdown"""
     logger.info("Shutting down LocalLens API...")
-    
+
     if watcher:
         watcher.stop()
     if opensearch_client:
         await opensearch_client.close()
     if ingestion_pipeline:
         await ingestion_pipeline.close()
-    
+
     # Close agents
     for agent in [search_agent, ingestion_agent, conversation_agent, orchestrator_agent]:
         if agent:
             await agent.close()
-    
+
+    # NEW: Close memory manager
+    if memory_manager:
+        await memory_manager.close()
+        logger.info("Memory Manager closed")
+
     logger.info("LocalLens API stopped")
 
 

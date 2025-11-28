@@ -1,80 +1,79 @@
 # LocalLens Dependencies - Enhanced with Agentic Memory & Reasoning
 
 # Web Framework
-fastapi>=0.104.0
-uvicorn[standard]>=0.24.0
-httpx>=0.25.0
-pydantic>=2.5.0
-pydantic-settings>=2.0.0
+fastapi
+uvicorn[standard]
+httpx
+pydantic
+pydantic-settings
 
 # Streamlit Frontend
-streamlit>=1.28.0
-plotly>=5.18.0
-streamlit-shadcn-ui>=0.1.0  # Modern UI components
-streamlit-elements>=0.1.0    # Rich interactive components
+streamlit
+plotly
+streamlit-shadcn-ui  # Modern UI components
+streamlit-elements  # Rich interactive components
 
 # OpenSearch
-opensearch-py>=2.4.0
-
+opensearch-py
 # ML & Embeddings
-sentence-transformers>=2.2.0
-numpy>=1.24.0
+sentence-transformers
+numpy
 
 # Document Processing
-pypdf>=3.17.0
-python-docx>=1.1.0
-pandas>=2.1.0
-openpyxl>=3.1.0
-pillow>=10.1.0
+pypdf
+python-docx
+pandas
+openpyxl
+pillow
 
 # File Watching
-watchdog>=3.0.0
+watchdog
 
 # Dimensionality Reduction (for visualization)
-umap-learn>=0.5.0
+umap-learn
 
 # Logging
-loguru>=0.7.0
+loguru
 
 # Retry Logic
-tenacity>=8.2.0
+tenacity
 
 # Configuration
-pyyaml>=6.0.1
+pyyaml
 
 # ===== ENHANCED AGENTIC CAPABILITIES =====
 
 # LangGraph & LangChain for multi-agent orchestration
-langgraph>=0.2.0
-langchain>=0.3.0
-langchain-core>=0.3.0
-langchain-community>=0.3.0
+langgraph
+langchain
+langchain-core
+langchain-community
 
 # Memory Systems
-redis>=5.0.0               # Short-term memory with TTL
-mem0ai>=0.1.0             # Advanced memory management
-# zep-python>=2.0.0       # Alternative: Episodic memory (optional)
+redis          # Short-term memory with TTL
+mem0ai            # Advanced memory management
+zep-python       # Alternative: Episodic memory (optional)
 
 # Database for Long-term Memory
-sqlalchemy>=2.0.0         # ORM for user profiles
-aiosqlite>=0.19.0         # Async SQLite support
-alembic>=1.13.0           # Database migrations
+sqlalchemy         # ORM for user profiles
+aiosqlite         # Async SQLite support
+alembic          # Database migrations
 
 # Observability & Monitoring
-opentelemetry-api>=1.21.0
-opentelemetry-sdk>=1.21.0
-opentelemetry-instrumentation-fastapi>=0.42b0
-prometheus-client>=0.19.0
+opentelemetry-api
+opentelemetry-sdk
+opentelemetry-instrumentation-fastapi
+prometheus-client
 
 # Advanced NLP & Reasoning
 # ollama>=0.1.0           # Local LLM integration (already using via API)
-duckduckgo-search>=4.0.0  # Web search for general queries
-markdownify>=0.11.0       # Better text formatting
+duckduckgo-search  # Web search for general queries
+markdownify      # Better text formatting
 
 # Caching & Performance
-cachetools>=5.3.0
-diskcache>=5.6.0
+cachetools
+diskcache
 
 # UI/UX Enhancements
-python-multipart>=0.0.6   # File uploads
-jinja2>=3.1.0            # Template rendering
+python-multipart   # File uploads
+jinja2          # Template rendering

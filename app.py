@@ -45,9 +45,32 @@ class LocalLensAPI:
                 response = await client.post(
                     f"{self.base_url}/search",
                     json={
-                        "query": query, 
+                        "query": query,
                         "top_k": top_k,
                         "use_hybrid": use_hybrid
+                    }
+                )
+                return response.json()
+            except Exception as e:
+                return {"status": "error", "message": str(e)}
+
+    async def search_enhanced(
+        self,
+        query: str,
+        top_k: int = 5,
+        session_id: Optional[str] = None,
+        user_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Enhanced search with memory and agents"""
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            try:
+                response = await client.post(
+                    f"{self.base_url}/search/enhanced",
+                    json={
+                        "query": query,
+                        "top_k": top_k,
+                        "session_id": session_id,
+                        "user_id": user_id
                     }
                 )
                 return response.json()
@@ -420,6 +443,15 @@ if 'show_ingestion_status' not in st.session_state:
 if 'last_stats_update' not in st.session_state:
     st.session_state.last_stats_update = time.time()
 
+# NEW: Initialize session ID and user ID for memory
+if 'session_id' not in st.session_state:
+    import uuid
+    st.session_state.session_id = str(uuid.uuid4())[:16]
+if 'user_id' not in st.session_state:
+    st.session_state.user_id = "anonymous"  # Can be customized later
+if 'use_enhanced_search' not in st.session_state:
+    st.session_state.use_enhanced_search = True  # Default to enhanced
+
 
 # Sidebar Configuration
 with st.sidebar:
@@ -458,12 +490,33 @@ with st.sidebar:
     # Search Settings
     st.subheader("⚙️ Search Settings")
     top_k = st.slider("Results to show", 1, 10, 5)
-    
+
+    # NEW: Enhanced search toggle
+    st.session_state.use_enhanced_search = st.checkbox(
+        "🤖 Enhanced Search",
+        value=st.session_state.use_enhanced_search,
+        help="Use AI agents and memory for smarter search"
+    )
+
     st.divider()
-    
+
+    # NEW: Session Info
+    with st.expander("🧠 Memory & Session"):
+        st.caption(f"**Session ID**: `{st.session_state.session_id}`")
+        st.caption(f"**User ID**: `{st.session_state.user_id}`")
+        st.caption(f"**Queries this session**: {len([m for m in st.session_state.chat_history if m['role'] == 'user'])}")
+
+        if st.button("🔄 New Session"):
+            import uuid
+            st.session_state.session_id = str(uuid.uuid4())[:16]
+            st.session_state.chat_history = []
+            st.rerun()
+
+    st.divider()
+
     # System Status
     st.subheader("📊 System Status")
-    
+
     if st.button("🔄 Refresh Status"):
         with st.spinner("Checking..."):
             health = asyncio.run(api.health_check())
@@ -471,6 +524,9 @@ with st.sidebar:
                 st.success("✅ All systems operational")
                 st.caption(f"Model: {health.get('model', 'N/A')}")
                 st.caption(f"Hybrid Search: {'✓' if health.get('hybrid_search') else '✗'}")
+                # NEW: Show enhanced features status
+                st.caption(f"Memory System: {health.get('memory_system', 'N/A')}")
+                st.caption(f"Orchestrator: {health.get('enhanced_orchestrator', 'N/A')}")
             else:
                 st.error(f"❌ {health.get('message', 'Connection error')}")
 
@@ -576,6 +632,19 @@ if query and (search_clicked or query != st.session_state.last_query):
         thinking_steps = []
 
         try:
+            # NEW: Try enhanced search first if available
+            if st.session_state.use_enhanced_search:
+                try:
+                    return await api.search_enhanced(
+                        query=query,
+                        top_k=top_k,
+                        session_id=st.session_state.session_id,
+                        user_id=st.session_state.user_id
+                    )
+                except Exception as enhanced_error:
+                    # Fallback to streaming if enhanced fails
+                    pass
+
             # Use the streaming endpoint
             async for update in api.search_stream(query, top_k):
                 if "step" in update:
@@ -611,7 +680,6 @@ if query and (search_clicked or query != st.session_state.last_query):
             return await api.search(query, top_k, use_hybrid)
 
         except Exception as e:
-            logger.error(f"Search streaming error: {e}")
             # Fallback to regular search
             return await api.search(query, top_k, use_hybrid)
 
