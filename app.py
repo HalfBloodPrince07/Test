@@ -6,7 +6,7 @@ import asyncio
 import plotly.graph_objects as go
 import yaml
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import time
 import subprocess
 import platform

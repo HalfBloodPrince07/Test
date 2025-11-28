@@ -92,7 +92,28 @@ Respond in JSON:
                     }
                 )
                 result = response.json()
-                evaluation = json.loads(result.get('response', '{}'))
+
+                # Validate response is not empty
+                response_text = result.get('response', '').strip()
+                if not response_text:
+                    logger.warning("Empty LLM response for result evaluation")
+                    return {
+                        "quality_score": 0.7,
+                        "relevance": 0.7,
+                        "completeness": 0.6,
+                        "recommendations": []
+                    }
+
+                try:
+                    evaluation = json.loads(response_text)
+                except json.JSONDecodeError as json_err:
+                    logger.warning(f"LLM response not valid JSON for result evaluation: {json_err}")
+                    return {
+                        "quality_score": 0.7,
+                        "relevance": 0.7,
+                        "completeness": 0.6,
+                        "recommendations": []
+                    }
 
                 return {
                     "quality_score": float(evaluation.get('quality_score', 0.5)),
@@ -168,7 +189,26 @@ Respond in JSON:
                     }
                 )
                 result = response.json()
-                return json.loads(result.get('response', '{}'))
+
+                # Validate response is not empty
+                response_text = result.get('response', '').strip()
+                if not response_text:
+                    logger.warning("Empty LLM response for hallucination detection")
+                    return {
+                        "has_hallucination": False,
+                        "confidence": 0.5,
+                        "unsupported_claims": []
+                    }
+
+                try:
+                    return json.loads(response_text)
+                except json.JSONDecodeError as json_err:
+                    logger.warning(f"LLM response not valid JSON for hallucination detection: {json_err}")
+                    return {
+                        "has_hallucination": False,
+                        "confidence": 0.5,
+                        "unsupported_claims": []
+                    }
 
         except Exception as e:
             logger.error(f"Hallucination detection failed: {e}")

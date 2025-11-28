@@ -53,7 +53,14 @@ Focus on specific matching aspects."""
                     }
                 )
                 result = response.json()
-                return result.get('response', '').strip()
+                response_text = result.get('response', '').strip()
+
+                # If LLM returns empty response, use default explanation
+                if not response_text:
+                    logger.warning("Empty LLM response for ranking explanation")
+                    return f"This document matches your query with a relevance score of {document.get('score', 0):.2f}"
+
+                return response_text
 
         except Exception as e:
             logger.error(f"Ranking explanation failed: {e}")
@@ -96,8 +103,19 @@ Respond in JSON:
                     }
                 )
                 result = response.json()
-                data = json.loads(result.get('response', '{}'))
-                return data.get('excerpts', [])
+
+                # Validate response is not empty
+                response_text = result.get('response', '').strip()
+                if not response_text:
+                    logger.warning("Empty LLM response for match highlighting")
+                    return []
+
+                try:
+                    data = json.loads(response_text)
+                    return data.get('excerpts', [])
+                except json.JSONDecodeError as json_err:
+                    logger.warning(f"LLM response not valid JSON for match highlighting: {json_err}")
+                    return []
 
         except Exception as e:
             logger.error(f"Match highlighting failed: {e}")

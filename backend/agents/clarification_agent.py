@@ -59,7 +59,26 @@ Respond in JSON:
                     }
                 )
                 result = response.json()
-                return json.loads(result.get('response', '{}'))
+
+                # Validate response is not empty
+                response_text = result.get('response', '').strip()
+                if not response_text:
+                    logger.warning("Empty LLM response for ambiguity detection")
+                    return {
+                        "is_ambiguous": False,
+                        "ambiguity_score": 0.0,
+                        "issues": []
+                    }
+
+                try:
+                    return json.loads(response_text)
+                except json.JSONDecodeError as json_err:
+                    logger.warning(f"LLM response not valid JSON for ambiguity detection: {json_err}")
+                    return {
+                        "is_ambiguous": False,
+                        "ambiguity_score": 0.0,
+                        "issues": []
+                    }
 
         except Exception as e:
             logger.error(f"Ambiguity detection failed: {e}")
@@ -118,8 +137,27 @@ Respond in JSON:
                     }
                 )
                 result = response.json()
-                data = json.loads(result.get('response', '{}'))
-                return data.get('questions', [])[:max_questions]
+
+                # Validate response is not empty
+                response_text = result.get('response', '').strip()
+                if not response_text:
+                    logger.warning("Empty LLM response for question generation")
+                    return [
+                        "Could you be more specific about what you're looking for?",
+                        "What type of documents are you interested in?",
+                        "Do you have a time frame in mind?"
+                    ][:max_questions]
+
+                try:
+                    data = json.loads(response_text)
+                    return data.get('questions', [])[:max_questions]
+                except json.JSONDecodeError as json_err:
+                    logger.warning(f"LLM response not valid JSON for question generation: {json_err}")
+                    return [
+                        "Could you be more specific about what you're looking for?",
+                        "What type of documents are you interested in?",
+                        "Do you have a time frame in mind?"
+                    ][:max_questions]
 
         except Exception as e:
             logger.error(f"Question generation failed: {e}")
@@ -215,8 +253,19 @@ Respond in JSON:
                     }
                 )
                 result = response.json()
-                data = json.loads(result.get('response', '{}'))
-                return data.get('alternatives', [])
+
+                # Validate response is not empty
+                response_text = result.get('response', '').strip()
+                if not response_text:
+                    logger.warning("Empty LLM response for alternative generation")
+                    return []
+
+                try:
+                    data = json.loads(response_text)
+                    return data.get('alternatives', [])
+                except json.JSONDecodeError as json_err:
+                    logger.warning(f"LLM response not valid JSON for alternative generation: {json_err}")
+                    return []
 
         except Exception as e:
             logger.error(f"Alternative generation failed: {e}")

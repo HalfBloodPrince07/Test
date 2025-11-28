@@ -44,7 +44,7 @@ from backend.orchestration import EnhancedOrchestrator
 import uuid
 
 # Load Configuration
-with open("config.yaml", "r") as f:
+with open("config.yaml", "r", encoding="utf-8") as f:
     config = yaml.safe_load(f)
 
 # Initialize FastAPI

@@ -214,8 +214,18 @@ Respond in JSON format:
                 )
                 result = response.json()
 
+                # Get response text and validate it's not empty
+                response_text = result.get('response', '').strip()
+                if not response_text:
+                    logger.warning("Empty LLM response, using rule-based classification")
+                    return self._rule_based_classify(query, context)
+
                 # Parse JSON response
-                classification = json.loads(result.get('response', '{}'))
+                try:
+                    classification = json.loads(response_text)
+                except json.JSONDecodeError as json_err:
+                    logger.warning(f"LLM response not valid JSON: {json_err}, using rule-based classification")
+                    return self._rule_based_classify(query, context)
 
                 intent_str = classification.get('intent', 'DOCUMENT_SEARCH')
                 try:
@@ -343,8 +353,25 @@ Respond in JSON format:
                     }
                 )
                 result = response.json()
-                data = json.loads(result.get('response', '{}'))
-                return data.get('questions', [])
+
+                # Validate response is not empty
+                response_text = result.get('response', '').strip()
+                if not response_text:
+                    logger.warning("Empty LLM response for clarification questions")
+                    return [
+                        "Are you looking for a specific type of document?",
+                        "Do you remember any keywords or dates associated with it?"
+                    ]
+
+                try:
+                    data = json.loads(response_text)
+                    return data.get('questions', [])
+                except json.JSONDecodeError:
+                    logger.warning("LLM response not valid JSON for clarification questions")
+                    return [
+                        "Are you looking for a specific type of document?",
+                        "Do you remember any keywords or dates associated with it?"
+                    ]
 
         except Exception as e:
             logger.error(f"Clarification generation failed: {e}")

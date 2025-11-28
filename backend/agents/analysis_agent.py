@@ -83,7 +83,18 @@ Respond in JSON:
                     }
                 )
                 result = response.json()
-                return json.loads(result.get('response', '{}'))
+
+                # Validate response is not empty
+                response_text = result.get('response', '').strip()
+                if not response_text:
+                    logger.warning("Empty LLM response for document comparison")
+                    return {"error": "Empty LLM response"}
+
+                try:
+                    return json.loads(response_text)
+                except json.JSONDecodeError as json_err:
+                    logger.warning(f"LLM response not valid JSON for document comparison: {json_err}")
+                    return {"error": f"Invalid JSON response: {json_err}"}
 
         except Exception as e:
             logger.error(f"Document comparison failed: {e}")
@@ -140,7 +151,18 @@ Respond in JSON:
                     }
                 )
                 result = response.json()
-                return json.loads(result.get('response', '{}'))
+
+                # Validate response is not empty
+                response_text = result.get('response', '').strip()
+                if not response_text:
+                    logger.warning("Empty LLM response for data aggregation")
+                    return {"error": "Empty LLM response"}
+
+                try:
+                    return json.loads(response_text)
+                except json.JSONDecodeError as json_err:
+                    logger.warning(f"LLM response not valid JSON for data aggregation: {json_err}")
+                    return {"error": f"Invalid JSON response: {json_err}"}
 
         except Exception as e:
             logger.error(f"Data aggregation failed: {e}")
@@ -206,7 +228,18 @@ Respond in JSON:
                     }
                 )
                 result = response.json()
-                return json.loads(result.get('response', '{}'))
+
+                # Validate response is not empty
+                response_text = result.get('response', '').strip()
+                if not response_text:
+                    logger.warning("Empty LLM response for trend detection")
+                    return {"error": "Empty LLM response"}
+
+                try:
+                    return json.loads(response_text)
+                except json.JSONDecodeError as json_err:
+                    logger.warning(f"LLM response not valid JSON for trend detection: {json_err}")
+                    return {"error": f"Invalid JSON response: {json_err}"}
 
         except Exception as e:
             logger.error(f"Trend detection failed: {e}")
@@ -256,8 +289,19 @@ Respond in JSON:
                     }
                 )
                 result = response.json()
-                data = json.loads(result.get('response', '{}'))
-                return data.get('insights', [])
+
+                # Validate response is not empty
+                response_text = result.get('response', '').strip()
+                if not response_text:
+                    logger.warning("Empty LLM response for insight generation")
+                    return []
+
+                try:
+                    data = json.loads(response_text)
+                    return data.get('insights', [])
+                except json.JSONDecodeError as json_err:
+                    logger.warning(f"LLM response not valid JSON for insight generation: {json_err}")
+                    return []
 
         except Exception as e:
             logger.error(f"Insight generation failed: {e}")
