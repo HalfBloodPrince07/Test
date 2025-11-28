@@ -1,0 +1,306 @@
+# LocalLens Enhanced Configuration
+
+# Ollama Settings
+ollama:
+  base_url: "http://localhost:11434"
+  model: "qwen3-vl:4b"
+  timeout: 500
+# OpenSearch Configuration
+opensearch:
+  host: "localhost"
+  port: 9200
+  index_name: "locallens_index"
+  use_ssl: true
+  verify_certs: false
+  auth:
+    username: "admin"
+    password: "LocalLens@1234"
+
+# Model Settings
+models:
+  embedding:
+    name: "nomic-embed-text"
+    dimension: 768
+    normalize: true
+  cross_encoder:
+    name: "cross-encoder/ms-marco-MiniLM-L-6-v2"
+    max_length: 512
+    batch_size: 32
+  qwen:
+    temperature: 0.7
+    max_tokens: 512
+    top_p: 0.9
+
+# Enhanced Search Configuration
+search:
+  # Hybrid search weights (vector + BM25)
+  hybrid:
+    enabled: true
+    vector_weight: 0.7
+    bm25_weight: 0.3
+  
+  # Query expansion settings
+  query_expansion:
+    enabled: true
+    max_expansions: 3
+    
+  # Retrieval settings
+  recall_top_k: 50        # Increased for better recall
+  rerank_top_k: 5
+  min_score: 0.3          # Lowered for more results
+  
+  # Clustering
+  cluster_count: 8
+
+# Agent Configuration
+agent:
+  name: "LocalLens Assistant"
+  personality: "helpful and informative"
+
+  # UI Display Mode
+  ui_mode: "minimalist"  # Options: "minimalist" or "verbose"
+
+  # Status messages for user feedback
+  status_messages:
+    analyzing: "🔍 Analyzing your query..."
+    searching: "📚 Searching through your documents..."
+    reranking: "⚡ Ranking results by relevance..."
+    summarizing: "✨ Preparing your results..."
+    no_results: "😕 I couldn't find any matching documents."
+    
+  # Response templates
+  templates:
+    search_intro: "I found {count} relevant documents for your query about '{topic}':"
+    no_results: "I searched through your indexed documents but couldn't find anything matching '{query}'. Try rephrasing or using different keywords."
+    error: "I encountered an issue while searching: {error}. Please try again."
+
+# File Watcher Configuration
+watcher:
+  debounce_seconds: 3
+  batch_size: 10
+  supported_extensions:
+    - ".pdf"
+    - ".docx"
+    - ".txt"
+    - ".md"
+    - ".xlsx"
+    - ".csv"
+    - ".png"
+    - ".jpg"
+    - ".jpeg"
+    - ".gif"
+    - ".bmp"
+
+# Ingestion Pipeline Settings
+ingestion:
+  chunk_size: 800        # Smaller chunks for better precision
+  chunk_overlap: 200
+  max_workers: 1
+  
+  # Enhanced prompts
+  prompts:
+    summarization: |
+      You are a document analysis assistant. Create a concise, searchable summary of this document.
+      
+      Focus on:
+      - Key entities (names, organizations, dates, locations)
+      - Main topics and themes
+      - Important facts and figures
+      - Document type and purpose
+      
+      Document content:
+      {content}
+      
+      Provide a 2-3 sentence summary that captures the essence of this document:
+      
+    image_caption: |
+      Analyze this image thoroughly and provide a detailed description.
+      
+      Include:
+      - Main subjects and objects visible
+      - Text or writing if present (transcribe it)
+      - Colors, layout, and visual style
+      - Context clues about what this image represents
+      - Any logos, brands, or identifiable elements
+      
+      Provide a comprehensive description that would help someone find this image through text search:
+
+# MCP Server Configuration
+mcp:
+  host: "0.0.0.0"
+  port: 8001
+  transport: "sse"
+  timeout: 30
+
+# A2A Agent Configuration
+a2a:
+  orchestrator:
+    enabled: true
+    max_retries: 3
+    timeout: 60
+    
+  agents:
+    orchestrator:
+      name: "OrchestratorAgent"
+      description: "Coordinates tasks between agents and manages workflow"
+      endpoint: "http://localhost:8000"
+      capabilities:
+        - "task_planning"
+        - "agent_coordination"
+        - "result_aggregation"
+        
+    ingestion:
+      name: "IngestionAgent"
+      description: "Processes and indexes documents"
+      endpoint: "http://localhost:8002"
+      capabilities:
+        - "index_documents"
+        - "process_files"
+        - "extract_content"
+        - "generate_embeddings"
+        
+    search:
+      name: "SearchAgent"
+      description: "Handles search queries and reranking"
+      endpoint: "http://localhost:8003"
+      capabilities:
+        - "semantic_search"
+        - "hybrid_search"
+        - "rerank_results"
+        - "cluster_documents"
+        
+    conversation:
+      name: "ConversationAgent"
+      description: "Manages user interactions and generates responses"
+      endpoint: "http://localhost:8004"
+      capabilities:
+        - "query_understanding"
+        - "response_generation"
+        - "context_management"
+
+# ===== ENHANCED AGENTIC FEATURES =====
+
+# Memory System Configuration
+memory:
+  # Short-term Memory (Session Context)
+  session:
+    backend: "redis"  # Options: "redis" or "memory"
+    redis_url: "redis://localhost:6379"
+    window_size: 10  # Number of conversation turns to maintain
+    ttl_seconds: 3600  # 1 hour session timeout
+
+  # Long-term Memory (User Profiles)
+  user_profile:
+    backend: "sqlite"
+    database_url: "sqlite+aiosqlite:///locallens_memory.db"
+    enable_analytics: true
+
+  # Procedural Memory (Learning)
+  procedural:
+    enable_learning: true
+    cache_ttl: 3600
+    learning_rate: 0.1
+
+  # Memory Consolidation
+  consolidation:
+    enabled: true
+    interval_seconds: 3600  # Run every hour
+
+
+# Specialized Agents Configuration
+agents:
+  # Query Classifier
+  classifier:
+    enabled: true
+    use_llm_fallback: true
+    confidence_threshold: 0.8
+
+  # Clarification Agent
+  clarification:
+    enabled: true
+    max_questions: 3
+    ambiguity_threshold: 0.4
+
+  # Analysis Agent
+  analysis:
+    enabled: true
+    max_documents_compare: 3
+    enable_trend_detection: true
+
+  # Summarization Agent
+  summarization:
+    enabled: true
+    default_type: "comprehensive"  # Options: comprehensive, brief, bullet_points
+    max_documents: 10
+    hierarchical_threshold: 5
+
+  # Explanation Agent
+  explanation:
+    enabled: true
+    explain_top_n: 3
+    show_score_breakdown: true
+
+  # Critic Agent (Quality Control)
+  critic:
+    enabled: true
+    quality_threshold: 0.5
+    enable_hallucination_detection: true
+
+
+# Orchestration Configuration
+orchestration:
+  use_langgraph: true  # Use LangGraph if available, else fallback
+  enable_parallel_execution: true
+  max_concurrent_agents: 3
+  timeout_seconds: 60
+  retry_attempts: 2
+
+
+# Dual-Mode Response System
+response_modes:
+  # Document Search Mode
+  document_mode:
+    enabled: true
+    use_memory: true
+    use_reranking: true
+    explain_results: true
+
+  # General Knowledge Mode
+  general_mode:
+    enabled: true
+    use_web_search: false  # DuckDuckGo fallback
+    max_response_tokens: 512
+    temperature: 0.4
+
+
+# Observability & Monitoring
+observability:
+  # OpenTelemetry Tracing
+  tracing:
+    enabled: false  # Set to true when ready
+    endpoint: "http://localhost:4318"
+    service_name: "locallens"
+
+  # Prometheus Metrics
+  metrics:
+    enabled: false  # Set to true when ready
+    port: 9090
+    path: "/metrics"
+
+  # Logging
+  logging:
+    level: "INFO"
+    format: "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>"
+    agent_logging: true
+    memory_logging: true
+
+# Performance Settings
+performance:
+  enable_caching: true
+  cache_ttl: 3600
+  enable_gpu: true
+  mixed_precision: true
+
+  # Request queuing
+  max_concurrent_requests: 10
+  request_timeout: 120
